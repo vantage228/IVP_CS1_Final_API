@@ -1,0 +1,6 @@
+@IVP_CS_HostAddress = http://localhost:5170
+
+GET {{IVP_CS_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
