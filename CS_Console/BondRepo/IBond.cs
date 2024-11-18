@@ -9,7 +9,7 @@ namespace BondConsoleApp.Repository
 {
     public interface IBond
     {
-        public Task ImportDataFromCsv(Stream csvstream);
+        public Task<string> ImportDataFromCsv(Stream csvstream);
 
         public Task<string> UpdateBondData(EditBondModel ebm);
 

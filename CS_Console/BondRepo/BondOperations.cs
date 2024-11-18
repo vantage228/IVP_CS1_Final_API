@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
@@ -22,8 +23,8 @@ namespace BondConsoleApp.Repository
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection");
         }
-
-        public async Task ImportDataFromCsv(Stream csvStream)
+        
+        public async Task<string> ImportDataFromCsv(Stream csvStream)
         {
             var records = await ReadCsvFile(csvStream);
 
@@ -40,13 +41,16 @@ namespace BondConsoleApp.Repository
                         }
 
                         await transaction.CommitAsync();
-                        Console.WriteLine("Data imported successfully.");
+                        return("Data imported successfully.");
+                    }
+                    catch (DbException ex)
+                    {
+                        return ("Database Error: " + ex.Message);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("Error during import: " + ex.Message);
                         await transaction.RollbackAsync();
-                        throw;
+                        return ("Error during import: " + ex.Message);
                     }
                 }
             }
@@ -192,6 +196,10 @@ namespace BondConsoleApp.Repository
                         await command.ExecuteNonQueryAsync();
                         return $"Updated Bond with Id - {ebm.SecurityID}";
                     }
+                    catch(DbException ex)
+                    {
+                        return "DB Error: "+ex.Message; 
+                    }
                     catch (Exception ex)
                     {
                         return "An error occurred while updating bond data: " + ex.Message;
@@ -216,6 +224,10 @@ namespace BondConsoleApp.Repository
                     {
                         await command.ExecuteNonQueryAsync();
                         return $"Bond with Id - {SecurityID} marked as inactive";
+                    }
+                    catch (DbException ex)
+                    {
+                        return "DB Error: " + ex.Message;
                     }
                     catch (Exception ex)
                     {
@@ -261,9 +273,13 @@ namespace BondConsoleApp.Repository
                             }
                         }
                     }
+                    catch (DbException ex)
+                    {
+                        throw new Exception("DB Error: " + ex.Message);
+                    }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error: {ex.Message}");
+                        throw new Exception($"Error: {ex.Message}");
                     }
                 }
             }

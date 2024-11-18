@@ -70,12 +70,12 @@ namespace IVP_CS.Controllers
                     await file.CopyToAsync(fileStream);
                 }
 
-                await _security.ImportDataFromCsv(filePath);
-                return Ok("File Processed Successfully");
+                var result = await _security.ImportDataFromCsv(filePath);
+                return Ok(result);
             }
             catch (DbException ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, $"DB ERROR: {ex.Message}");
+                return StatusCode(StatusCodes.Status409Conflict, $"DB ERROR: {ex.Message}");
             }
             catch (Exception ex)
             {
@@ -109,10 +109,14 @@ namespace IVP_CS.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteData([FromRoute] int id)
         {
+            if(id <= 0)
+            {
+                return BadRequest(new { message = "Invalid Security ID." });
+            }
             try
             {
-                await _security?.DeleteSecurityData(id);
-                return Ok(new { message = "Bond successfully marked as inactive." });
+                var result = await _security.DeleteSecurityData(id);
+                return Ok(new { message = result });
             }
             catch (DbException ex)
             {
@@ -123,5 +127,26 @@ namespace IVP_CS.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Error Retrieving Equities: {ex.Message}");
             }
         }
+
+        [HttpGet("getSecurityByID/{securityID}")]
+        public IActionResult GetSecurityDetailsByID( [FromRoute] int securityID)
+        {
+            try
+            {
+                var securityDetails = _security.GetSecurityDetailsByID(securityID); // Replace _yourService with your actual service/operations class
+
+                if (securityDetails == null || !securityDetails.Any())
+                {
+                    return NotFound(new { message = "No data found for the provided Security ID." });
+                }
+
+                return Ok(securityDetails);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Internal server error: {ex.Message}" });
+            }
+        }
+
     }
 }

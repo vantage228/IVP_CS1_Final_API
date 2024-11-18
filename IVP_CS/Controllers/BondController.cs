@@ -35,10 +35,9 @@ namespace CS_WebAPI.Controllers
             {
                 using (var stream = file.OpenReadStream())
                 {
-                    await _bondOperations.ImportDataFromCsv(stream);
+                    var res = await _bondOperations.ImportDataFromCsv(stream);
+                    return Ok(res);
                 }
-
-                return Ok("File processed successfully.");
             }
             catch (Exception ex)
             {

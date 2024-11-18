@@ -13,6 +13,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Transactions;
 using Microsoft.Extensions.Configuration;
 using BondConsoleApp.Models;
+using System.Data.Common;
 
 namespace CS_Console.EquityRepo
 {
@@ -27,7 +28,7 @@ namespace CS_Console.EquityRepo
 
         public EquityOperation() { }
 
-        public async Task ImportDataFromCsv(string filePath)
+        public async Task<string> ImportDataFromCsv(string filePath)
         {
             var records = await ReadCsvFile(filePath);
 
@@ -43,11 +44,16 @@ namespace CS_Console.EquityRepo
                             await InsertFullSecurityData(record, connection, transaction);
                         }                       
                         await transaction.CommitAsync();
+                        return "Data Inserted Successfully";
+                    }
+                    catch(DbException ex)
+                    {
+                        return ("Database Error: " + ex.Message);
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("Error during import: " + ex.Message);
                         await transaction.RollbackAsync();
+                        return ("Error during import: " + ex.Message);
                     }
                 }
             }
@@ -171,7 +177,6 @@ namespace CS_Console.EquityRepo
                 {
                     command.CommandType = CommandType.StoredProcedure;
 
-                    // Set up parameters with values
                     command.Parameters.AddWithValue("@SecurityID", esm.SecurityID);
                     command.Parameters.AddWithValue("@SecurityDescription", esm.SecurityDescription ?? (object)DBNull.Value);
                     command.Parameters.AddWithValue("@PricingCurrency", esm.PricingCurrency ?? (object)DBNull.Value);
@@ -185,6 +190,10 @@ namespace CS_Console.EquityRepo
                     {
                         await command.ExecuteNonQueryAsync();
                         return "Updated Data";
+                    }
+                    catch(DbException ex)
+                    {
+                        return "DB Error "+ex.Message;
                     }
                     catch (Exception ex)
                     {
@@ -210,6 +219,10 @@ namespace CS_Console.EquityRepo
                         await command.ExecuteNonQueryAsync();
                         return $"Equity with Id - {securityId} marked as inactive";
                     }
+                    catch(DbException ex)
+                    {
+                        return "DB Error1: "+ex.Message ;    
+                    }
                     catch (Exception ex)
                     {
                         return $"Error: {ex.Message}";
@@ -220,40 +233,81 @@ namespace CS_Console.EquityRepo
 
         public async Task<List<EditEquityModel>> GetSecurityData()
         {
-            var securityList = new List<EditEquityModel>();
+            try
+            {
+                var securityList = new List<EditEquityModel>();
+
+                using (SqlConnection conn = new SqlConnection(_connectionString))
+                {
+                    using (SqlCommand cmd = new SqlCommand("GetEquityData", conn))  // Your stored procedure name
+                    {
+                        cmd.CommandType = CommandType.StoredProcedure;
+
+                        await conn.OpenAsync();
+                        using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                var security = new EditEquityModel
+                                {
+                                    SecurityID = reader["SecurityID"] == DBNull.Value ? 0 : Convert.ToInt32(reader["SecurityID"]),
+                                    SecurityName = reader["SecurityName"] == DBNull.Value ? string.Empty : reader["SecurityName"].ToString(),
+                                    SecurityDescription = reader["SecurityDescription"] == DBNull.Value ? string.Empty : reader["SecurityDescription"].ToString(),
+                                    PricingCurrency = reader["PricingCurrency"] == DBNull.Value ? string.Empty : reader["PricingCurrency"].ToString(),
+                                    TotalSharesOutstanding = reader["TotalSharesOutstanding"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["TotalSharesOutstanding"]),
+                                    OpenPrice = reader["OpenPrice"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["OpenPrice"]),
+                                    ClosePrice = reader["ClosePrice"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["ClosePrice"]),
+                                    DividendDeclaredDate = reader["DividendDeclaredDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["DividendDeclaredDate"]),
+                                    FormPFCreditRating = reader["PFCreditRating"] == DBNull.Value ? string.Empty : reader["PFCreditRating"].ToString(),
+                                    YTDReturn = reader["YTDReturn"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["YTDReturn"]),
+                                    IsActive = reader["IsActive"] == DBNull.Value ? (bool?)null : Convert.ToBoolean(reader["IsActive"])
+                                };
+                                securityList.Add(security);
+                            }
+                        }
+                    }
+                }
+
+                return securityList;
+            }
+            catch(DbException ex)
+            {
+                throw new Exception("DB Error : "+ex.Message);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("DB Error : " + ex.Message);
+            }
+        }
+
+        public List<Dictionary<string, object>> GetSecurityDetailsByID(int securityID)
+        {
+            var result = new List<Dictionary<string, object>>();
 
             using (SqlConnection conn = new SqlConnection(_connectionString))
             {
-                using (SqlCommand cmd = new SqlCommand("GetEquityData", conn))  // Your stored procedure name
+                using (SqlCommand cmd = new SqlCommand("GetDetailsBySecurityID", conn))
                 {
                     cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.Parameters.AddWithValue("@SecurityID", securityID);
 
-                    await conn.OpenAsync();
-                    using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                    conn.Open();
+                    using (SqlDataReader reader = cmd.ExecuteReader())
                     {
-                        while (await reader.ReadAsync())
+                        while (reader.Read())
                         {
-                            var security = new EditEquityModel
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++)
                             {
-                                SecurityID = reader["SecurityID"] == DBNull.Value ? 0 : Convert.ToInt32(reader["SecurityID"]),
-                                SecurityName = reader["SecurityName"] == DBNull.Value ? string.Empty : reader["SecurityName"].ToString(),
-                                SecurityDescription = reader["SecurityDescription"] == DBNull.Value ? string.Empty : reader["SecurityDescription"].ToString(),
-                                PricingCurrency = reader["PricingCurrency"] == DBNull.Value ? string.Empty : reader["PricingCurrency"].ToString(),
-                                TotalSharesOutstanding = reader["TotalSharesOutstanding"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["TotalSharesOutstanding"]),
-                                OpenPrice = reader["OpenPrice"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["OpenPrice"]),
-                                ClosePrice = reader["ClosePrice"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["ClosePrice"]),
-                                DividendDeclaredDate = reader["DividendDeclaredDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["DividendDeclaredDate"]),
-                                FormPFCreditRating = reader["PFCreditRating"] == DBNull.Value ? string.Empty : reader["PFCreditRating"].ToString(),
-                                YTDReturn = reader["YTDReturn"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["YTDReturn"]),
-                                IsActive = reader["IsActive"] == DBNull.Value ? (bool?)null : Convert.ToBoolean(reader["IsActive"])
-                            };
-                            securityList.Add(security);
+                                row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                            }
+                            result.Add(row);
                         }
                     }
                 }
             }
 
-            return securityList;
+            return result;
         }
     }
 }
