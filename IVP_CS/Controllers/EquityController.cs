@@ -3,6 +3,7 @@ using CS_Console.EquityRepo;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Data.Common;
+using CsvHelper;
 
 namespace IVP_CS.Controllers
 {
@@ -14,6 +15,12 @@ namespace IVP_CS.Controllers
         public EquityController(IEquity security)
         {
             _security = security;
+        }
+
+        private string ExtractFirstMissingHeader(string exceptionMessage)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(exceptionMessage, @"Header with name '([^']+)'");
+            return match.Success ? match.Groups[1].Value : "Unknown Header";
         }
 
         [HttpGet]
@@ -72,6 +79,13 @@ namespace IVP_CS.Controllers
 
                 var result = await _security.ImportDataFromCsv(filePath);
                 return Ok(result);
+            }
+            catch (HeaderValidationException ex)
+            {
+                var missingHeader = ExtractFirstMissingHeader(ex.Message);
+                var errorMessage = $"Cannot add file: Missing header '{missingHeader}'";
+
+                return BadRequest(errorMessage);
             }
             catch (DbException ex)
             {

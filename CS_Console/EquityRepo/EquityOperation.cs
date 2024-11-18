@@ -48,12 +48,12 @@ namespace CS_Console.EquityRepo
                     }
                     catch(DbException ex)
                     {
-                        return ("Database Error: " + ex.Message);
+                        throw;
                     }
                     catch (Exception ex)
                     {
                         await transaction.RollbackAsync();
-                        return ("Error during import: " + ex.Message);
+                        throw;
                     }
                 }
             }
@@ -61,9 +61,20 @@ namespace CS_Console.EquityRepo
 
         private async Task<List<EquityDataModel>> ReadCsvFile(string filePath)
         {
-            using var reader = new StreamReader(filePath);
-            using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-            return await Task.Run(() =>  csv.GetRecords<EquityDataModel>().ToList());
+            var records = new List<EquityDataModel>();
+            try
+            {
+                using (var reader = new StreamReader(filePath))
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                {
+                    records = csv.GetRecords<EquityDataModel>().ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+            return records;
         }
 
         private async Task InsertFullSecurityData(EquityDataModel data, SqlConnection connection, SqlTransaction transaction)
@@ -193,11 +204,11 @@ namespace CS_Console.EquityRepo
                     }
                     catch(DbException ex)
                     {
-                        return "DB Error "+ex.Message;
+                        throw;
                     }
                     catch (Exception ex)
                     {
-                        return ex.Message;
+                        throw;
                     }
                 }
             }
@@ -221,11 +232,11 @@ namespace CS_Console.EquityRepo
                     }
                     catch(DbException ex)
                     {
-                        return "DB Error1: "+ex.Message ;    
+                        throw;
                     }
                     catch (Exception ex)
                     {
-                        return $"Error: {ex.Message}";
+                        throw;
                     }
                 }
             }
@@ -272,11 +283,11 @@ namespace CS_Console.EquityRepo
             }
             catch(DbException ex)
             {
-                throw new Exception("DB Error : "+ex.Message);
+                throw;
             }
             catch (Exception ex)
             {
-                throw new Exception("DB Error : " + ex.Message);
+                throw;
             }
         }
 

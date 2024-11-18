@@ -3,6 +3,7 @@ using BondConsoleApp.Repository;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using BondConsoleApp.Models;
+using CsvHelper;
 
 namespace CS_WebAPI.Controllers
 {
@@ -15,6 +16,11 @@ namespace CS_WebAPI.Controllers
         public BondController(IBond bondOperations)
         {
             _bondOperations = bondOperations;
+        }
+        private string ExtractFirstMissingHeader(string exceptionMessage)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(exceptionMessage, @"Header with name '([^']+)'");
+            return match.Success ? match.Groups[1].Value : "Unknown Header";
         }
 
         [HttpPost("upload")]
@@ -38,6 +44,13 @@ namespace CS_WebAPI.Controllers
                     var res = await _bondOperations.ImportDataFromCsv(stream);
                     return Ok(res);
                 }
+            }
+            catch (HeaderValidationException ex)
+            {
+                var missingHeader = ExtractFirstMissingHeader(ex.Message);
+                var errorMessage = $"Cannot add file: Missing header '{missingHeader}'";
+
+                return BadRequest(errorMessage);
             }
             catch (Exception ex)
             {
