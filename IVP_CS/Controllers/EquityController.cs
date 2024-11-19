@@ -12,9 +12,12 @@ namespace IVP_CS.Controllers
     public class EquityController : ControllerBase
     {
         IEquity _security;
-        public EquityController(IEquity security)
+        private readonly ILogger<EquityController> _logger;
+        public EquityController(IEquity security, ILogger<EquityController> logger)
         {
             _security = security;
+            _logger = logger;
+
         }
 
         private string ExtractFirstMissingHeader(string exceptionMessage)
@@ -26,21 +29,26 @@ namespace IVP_CS.Controllers
         [HttpGet]
         public async Task<IActionResult> GetData()
         {
+            _logger.LogInformation("GetData Method Called");
             try
             {
                 List<EditEquityModel> result = await _security.GetSecurityData();
                 if (result == null || !result.Any())
                 {
+                    _logger.LogWarning("No equity data found");
                     return NotFound(new { message = "No equity data found." });
                 }
+                _logger.LogInformation("Equity Data Successfully Retrieved");
                 return Ok(result);
             }
             catch(DbException ex)
             {
+                _logger.LogError(ex, "Database error while retrieving equity data");
                 return StatusCode(StatusCodes.Status500InternalServerError, $"DB ERROR: {ex.Message}");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Unexpected error while retrieving equity data");
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Error Retrieving Equities: {ex.Message}");
             }
         }
@@ -48,15 +56,18 @@ namespace IVP_CS.Controllers
         [HttpPost("upload")]
         public async Task<IActionResult> PostData(IFormFile file)
         {
+            _logger.LogInformation("PostData Method Called");
             try
             {
                 if (file == null || file.Length == 0)
                 {
+                    _logger.LogWarning("Invalid File Uploaded");
                     return BadRequest("No file uploaded.");
                 }
 
                 if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
                 {
+                    _logger.LogWarning("Invalid File Format");
                     return BadRequest("Only CSV files are allowed.");
                 }
 
@@ -67,6 +78,7 @@ namespace IVP_CS.Controllers
                 if (!Directory.Exists(uploadsFolderPath))
                 {
                     Directory.CreateDirectory(uploadsFolderPath);
+                    _logger.LogInformation("Directory created for uploading file: {directory}", uploadsFolderPath);
                 }
 
                 var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
@@ -78,21 +90,24 @@ namespace IVP_CS.Controllers
                 }
 
                 var result = await _security.ImportDataFromCsv(filePath);
+                _logger.LogInformation("Successfully imported data");
                 return Ok(result);
             }
             catch (HeaderValidationException ex)
             {
                 var missingHeader = ExtractFirstMissingHeader(ex.Message);
                 var errorMessage = $"Cannot add file: Missing header '{missingHeader}'";
-
+                _logger.LogError("Headers Mismatching: {missingHeader}", missingHeader);
                 return BadRequest(errorMessage);
             }
             catch (DbException ex)
             {
+                _logger.LogError("DB Error Occured While Uploading the CSV");
                 return StatusCode(StatusCodes.Status409Conflict, $"DB ERROR: {ex.Message}");
             }
             catch (Exception ex)
             {
+                _logger.LogError("Unexpected Error Occured While Uploading the CSV");
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Error Uploading Equities: {ex.Message}");
             }
         }
@@ -100,22 +115,27 @@ namespace IVP_CS.Controllers
         [HttpPut("edit")]
         public async Task<IActionResult> PutData([FromBody] EditEquityModel esm)
         {
+            _logger.LogInformation("Put Method Called");
             if (esm == null || esm.SecurityID <= 0)
             {
+                _logger.LogInformation("Invalid Equity Data Provided for Update");
                 return BadRequest(new { message = "Invalid bond data." });
             }
 
             try
             {
                 await _security.UpdateSecurityData(esm);
+                _logger.LogInformation("Successfully Updated Equity with ID - {id}", esm.SecurityID);
                 return Ok();
             }
             catch (DbException ex)
             {
+                _logger.LogInformation("DB Error Occured while Updating Equity with ID - {id}", esm.SecurityID);
                 return StatusCode(StatusCodes.Status500InternalServerError, $"DB ERROR: {ex.Message}");
             }
             catch (Exception ex)
             {
+                _logger.LogInformation("Unexpected Error Occured while Updating Equity with ID - {id}", esm.SecurityID);
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Error Updating Equities: {ex.Message}");
             }
         }

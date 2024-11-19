@@ -3,6 +3,7 @@ using BondConsoleApp.Repository;
 using CS_Console.EquityRepo;
 using CS_Console.LogRepo;
 using CS_Console.UserRepo;
+using Serilog;
 
 namespace IVP_CS
 {
@@ -11,6 +12,12 @@ namespace IVP_CS
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(builder.Configuration) 
+                .Enrich.FromLogContext()   
+                .CreateLogger();
+            builder.Host.UseSerilog();
 
             // Add services to the container.
 
@@ -42,7 +49,21 @@ namespace IVP_CS
 
             app.MapControllers();
 
-            app.Run();
+            //app.Run();
+
+            try
+            {
+                Log.Information("App Started");
+                app.Run();
+            }
+            catch(Exception ex) 
+            {
+                Log.Error(ex, "Unhandled exception occurred.");
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
     }
 }

@@ -39,17 +39,18 @@ namespace CS_Console.LogRepo
                             {
                                 SecurityUpdateLog log = new SecurityUpdateLog
                                 {
-                                    LogId = Convert.ToInt32(reader["log_id"]),
-                                    SecurityId = Convert.ToInt32(reader["security_id"]),
-                                    UpdateTime = Convert.ToDateTime(reader["update_time"]),
-                                    UpdatedBy = reader["updated_by"].ToString(),
-                                    FieldUpdated = reader["field_updated"].ToString(),
-                                    OldValue = reader["old_value"].ToString(),
-                                    NewValue = reader["new_value"].ToString(),
-                                    UpdateStatus = reader["update_status"].ToString(),
-                                    ErrorMessage = reader["error_message"] as string, // Handles null
-                                    tableType = reader["table_type"].ToString()
+                                    LogId = reader["log_id"] != DBNull.Value ? Convert.ToInt32(reader["log_id"]) : 0,
+                                    SecurityId = reader["security_id"] != DBNull.Value ? Convert.ToInt32(reader["security_id"]) : 0,
+                                    UpdateTime = reader["update_time"] != DBNull.Value ? Convert.ToDateTime(reader["update_time"]) : DateTime.MinValue,
+                                    UpdatedBy = reader["updated_by"] != DBNull.Value ? reader["updated_by"].ToString() : string.Empty,
+                                    FieldUpdated = reader["field_updated"] != DBNull.Value ? reader["field_updated"].ToString() : string.Empty,
+                                    OldValue = reader["old_value"] != DBNull.Value ? reader["old_value"].ToString() : string.Empty,
+                                    NewValue = reader["new_value"] != DBNull.Value ? reader["new_value"].ToString() : string.Empty,
+                                    UpdateStatus = reader["update_status"] != DBNull.Value ? reader["update_status"].ToString() : string.Empty,
+                                    ErrorMessage = reader["error_message"] != DBNull.Value ? reader["error_message"].ToString() : string.Empty,
+                                    tableType = reader["table_type"] != DBNull.Value ? reader["table_type"].ToString() : string.Empty
                                 };
+
 
                                 logs.Add(log);
                             }
